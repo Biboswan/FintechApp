@@ -1,0 +1,242 @@
+from bs4 import BeautifulSoup
+import requests,lxml,os,json
+
+stock_data={}
+financial_data={}
+project_url="https://data.broth34.hasura-app.io/"
+headers={"Content-Type":"application/json","Authorization":"Bearer l269fmg95sxdqzbe9rdwpzn5iueetxtb"}
+#First get the balance sheet and profit/loss urls for each company
+def fetch_urls():
+
+	url="http://www.moneycontrol.com/stocks/marketinfo/marketcap/nse/index.html"
+
+	page=requests.get(url).text
+
+	soup=BeautifulSoup(page,'lxml')  #Getting a patch of the page
+
+	table=soup.find('table',class_="tbldata14 bdrtpg")
+	urls=[]
+
+	for tr in table.findAll('tr')[1:]:
+
+		companyUrl=tr.find('a',class_='bl_12',href=True)['href']
+		urls.append(companyUrl)
+	for url in urls:
+		extract_bl_pf_data(url)
+
+
+# Get balance sheet data
+
+def extract_bl_pf_data(companyUrl):
+
+	global stock_data
+	global financial_data
+	stock_data={}
+	financial_data={}
+	url="http://www.moneycontrol.com"+companyUrl
+	page=requests.get(url).text
+	soup=BeautifulSoup(page,'lxml')
+
+	#Getting stock name ,sector name
+	stock_name=soup.find('div',{'id':"nChrtPrc"}).find('h1').text
+	sector_name=soup.findAll('a',class_="gD_10")[3].text
+	stock_data['stock_name']=stock_name
+	stock_data['sector_name']=sector_name
+
+	bl_url=soup.find('a',text="Balance Sheet",href=True)['href']
+	extract_bldata(bl_url)
+
+	pf_url=soup.find('a',text="Profit & Loss",href=True)['href']
+	extract_pfdata(pf_url)
+	
+
+
+
+
+
+def extract_bldata(companyUrl):
+
+	url="http://www.moneycontrol.com"+companyUrl
+
+	page=requests.get(url).text
+
+	soup=BeautifulSoup(page,'lxml')
+	base_div=soup.find('div',class_="boxBg1")
+
+	table=base_div.findAll('table')[2]
+
+	years=[]
+
+	trs=table.findAll('tr')[0]
+	for td in trs.findAll('td')[1:]:
+
+		years.append(int(td.text[-2:])+2000)
+	try:
+		get_td_value('Total Current Assets','total_net_current_assets',years,table)
+		get_td_value('Total Non-Current Assets','net_block',years,table)
+	except exception as e:
+
+		try:
+			get_td_value('Total Assets','invested_capital',years,table)
+		except Exception as e:
+			print("Error :"+str(e))
+
+
+
+#Get value from table
+
+def get_td_value(name,column,years,table):
+
+	try:
+		all_data=table.find('td',text=name).find_next_siblings()
+		index=0
+
+		for year in years:
+
+			current_data=all_data[index]
+
+			if year in financial_data: #keys
+				financial_data[year][column]=float((current_data.text).replace(',',''))
+			else:
+				financial_data[year]={"year":year}
+				financial_data[year][column]=float((current_data.text).replace(',',''))
+
+			index=index+1
+
+	except Exception as e:
+		print("Error"+str(e))
+
+
+def extract_pfdata(companyUrl):
+
+	try:
+		url="http://www.moneycontrol.com"+companyUrl
+		page=requests.get(url).text
+
+		soup=BeautifulSoup(page,'lxml')
+		base_div=soup.find('div',class_="boxBg1")
+
+		table=base_div.findAll('table')[2]
+
+		years=[]
+
+		trs=table.findAll('tr')[0]
+		for td in trs.findAll('td')[1:]:
+			years.append(int(td.text[-2:])+2000)
+
+		get_td_value('Total Revenue','total_revenue',years,table)
+		get_td_value('Profit/Loss Before Tax','profit_before_tax',years,table)
+		get_td_value('Other Income','other_income',years,table)
+		get_td_value('Total Tax Expenses','total_tax',years,table)
+		insert_data()
+
+	except Exception as e:
+		print("Error"+str(e))
+
+
+
+
+# Get profit/loss data
+
+def insert_data():
+
+	print("Calculating economic data")
+	#Calculate economic profit
+
+	for year in financial_data:
+
+		yearly_data=financial_data[year]
+		pbt=yearly_data['profit_before_tax']
+		other_income=yearly_data['other_income']
+		adj_ebit=pbt-other_income
+
+		total_tax=yearly_data['total_tax']
+		tax_rate=total_tax/pbt
+		tax_on_other_income=tax_rate*other_income
+
+		tax_on_adj_ebit=total_tax-tax_on_other_income
+
+		noplat=adj_ebit-tax_on_adj_ebit
+
+		#Cost of equity assumeed as 12%
+
+		coe=0.12
+
+		net_block=yearly_data['net_block']
+		if net_block==None:
+			invested_capital=yearly_data["invested_capital"]
+		else:
+			total_net_current_assets=yearly_data['total_net_current_assets']
+			invested_capital=net_block+total_net_current_assets
+
+		economic_profit=noplat-(coe*invested_capital)
+		total_revenue=yearly_data['total_revenue']
+		ep_ratio=economic_profit/total_revenue
+
+		financial_data[year]['economic_profit']=economic_profit
+		financial_data[year]['ep_ratio']=ep_ratio
+
+		#Inserting data into the database
+		data_url=project_url+"/v1/query"
+
+		stocks_id=0
+
+		#inserting stock info "stock_name":stock_data["stock_name"]}
+	stock_query={"type":"insert","args":{"table":"stocks","objects":[stock_data]}}
+	 #stock_query={"type":"run_sql","args":{"sql":"SELECT id FROM stocks WHERE "}}
+
+	try:
+		resp=requests.post(data_url,headers=headers,data=json.dumps(stock_query))
+	except Exception as e:
+		print("Error %s"%str(e))
+	
+	else:
+		try:
+			print(str(resp.content))
+			getid_query={"type":"select","args":{"table":"stocks","columns":["id"],"where":{"stock_name":stock_data["stock_name"]}}}
+			resp=requests.post(data_url,headers=headers,data=json.dumps(getid_query))
+			stocks_id=json.loads(resp.content.decode("utf-8"))[0]["id"]
+		except Exception as e:
+			print("Error %s"%str(e))
+
+
+		#Inserting financial data
+
+	for obj in financial_data:
+		current_data=financial_data[obj]
+		current_data["stocks_id"]=stocks_id
+		print(current_data)
+
+		financial_query={"type":"insert",
+		"args":{"table":"stock_financial_data",
+		"objects":[current_data]}}
+		try:
+			resp=requests.post(data_url,headers=headers,data=json.dumps(financial_query))
+		except Exception as e:
+			print("Error %s"%str(e))
+
+		print(str(resp.content))
+
+def delete_all():
+
+	data_url=project_url+"/v1/query"
+	query={"args":{"table":"stock_financial_data","where":{}},"type":"delete"}
+
+	resp=requests.post(data_url,headers=headers,data=json.dumps(query))
+	print(str(resp.content))
+
+	query={"args":{"table":"stocks","where":{}},"type":"delete"}
+
+	resp=requests.post(data_url,headers=headers,data=json.dumps(query))
+	print(str(resp.content))
+
+	
+
+
+
+delete_all()
+fetch_urls()
+	
+
+
+	#Store everyting in the database

@@ -1,3 +1,12 @@
+#What is a Fintech App ?
+
+Fintech is a short term for financial technology.Therefore a fintech app is one dealing with financial services.
+
+#Project Introduction
+
+In this project,moneytary data of various companies from different sectors for the past 5 years is collected from www.moneycontrol.com and stored in a database.
+This data is used to calculate and compare the economic profit ratio of each company which is represented in the form of line charts.
+
 # Quickstart - Build your own Docker image#
 
 Build the Docker image using the following command
@@ -35,4 +44,5 @@ Follow the steps mentioned below for git based pipeline
 
 ### **Port**
 
-Default Port for application is `8080` .
+Default Port for application is `8080`
+

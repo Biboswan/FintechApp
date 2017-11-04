@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<title>Economic Profit Charts</title>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.bundle.min.js"></script>
-	<script src="https://github.com/hasura/js-sdk/releases/download/v0.1.3/hasura.min.js"></script>
-	<script src="/utils.js"></script>
-	<script>
-		$(document).ready(function(){
+	<head>
+		<title>Economic Profit Charts</title>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.bundle.min.js"></script>
+		<script src="https://github.com/hasura/js-sdk/releases/download/v0.1.3/hasura.min.js"></script>
+		<script src="/utils.js"></script>
+		<script>
+			$(document).ready(function(){
 			hasura.setProject('broth34');
 			
 			function makeDropdown(data){
@@ -133,17 +133,17 @@
 
 			
 });
-	</script>
-</head>
-<body>
-<h1 >
-PLACE SOME CHARTS HERE
-</h1>
-<select id="dropdown">
-<option value="default">Select a company</option>
-</select>
-<div id="canvas-container">
-<canvas id="canvas"></canvas>
-</div>
-</body>
+		</script>
+	</head>
+	<body>
+		<h1 >
+		PLACE SOME CHARTS HERE
+		</h1>
+		<select id="dropdown">
+			<option value="default">Select a company</option>
+		</select>
+		<div id="canvas-container">
+			<canvas id="canvas"></canvas>
+		</div>
+	</body>
 </html>
