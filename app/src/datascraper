@@ -3,8 +3,9 @@ import requests,lxml,os,json
 
 stock_data={}
 financial_data={}
+OAUTH_TOKEN= "Bearer "+os.environ["HasuraToken"]
 project_url="https://data.broth34.hasura-app.io/"
-headers={"Content-Type":"application/json","Authorization":"Bearer l269fmg95sxdqzbe9rdwpzn5iueetxtb"}
+headers={"Content-Type":"application/json","Authorization":OAUTH_TOKEN}
 #First get the balance sheet and profit/loss urls for each company
 def fetch_urls():
 
